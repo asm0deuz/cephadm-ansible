@@ -39,6 +39,11 @@
   become: true
   gather_facts: true
   vars:
+    repos_to_disable:
+      - rhceph-4-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
+      - rhceph-4-mon-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
+      - rhceph-4-osd-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
+      - rhceph-5-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
     packages_to_uninstall:
       - ceph-mds
       - ceph-mgr
@@ -46,11 +51,6 @@
       - ceph-osd
       - ceph-radosgw
       - rbd-mirror
-    repos_to_disable:
-      - rhceph-4-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
-      - rhceph-4-mon-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
-      - rhceph-4-osd-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
-      - rhceph-5-tools-for-rhel-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}-rpms
   tasks:
     - name: import_role ceph_defaults
       import_role:
