@@ -1,11 +1,11 @@
 ---
-- name: load variables
+- name: Load variables
   hosts: all
   become: false
   tasks:
     - include_vars: deploy-cluster-vars.yml
 
-- name: gather facts and prepare system for cephadm
+- name: Gather facts and prepare system for cephadm
   hosts:
     - mons
     - mgrs
@@ -13,11 +13,11 @@
   become: true
   gather_facts: false
   tasks:
-    - import_role:
+    - ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: gather and delegate facts
-      setup:
+    - name: Gather and delegate facts
+      ansible.builtin.setup:
         gather_subset:
           - 'all'
           - '!facter'
@@ -28,8 +28,8 @@
       run_once: true
       when: delegate_facts_host | bool
 
-    - name: container registry authentication
-      cephadm_registry_login:
+    - name: Container registry authentication
+      ceph.automation.cephadm_registry_login:
         registry_url: "{{ ceph_container_registry }}"
         registry_username: "{{ ceph_container_registry_username }}"
         registry_password: "{{ ceph_container_registry_password }}"
@@ -39,16 +39,16 @@
         NO_PROXY: "{{ ceph_container_no_proxy }}"
       when: ceph_container_registry_auth | default(False) | bool
 
-- name: bootstrap the cluster
+- name: Bootstrap the cluster
   hosts: "{{ groups.get('mons')[0] }}"
   become: true
   gather_facts: false
   tasks:
-    - import_role:
+    - ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: bootstrap initial cluster
-      cephadm_bootstrap:
+    - name: Bootstrap initial cluster
+      ceph.automation.cephadm_bootstrap:
         mon_ip: "{{ monitor_address }}"
         fsid: "{{ fsid if fsid is defined else omit }}"
         pull: false
@@ -58,7 +58,7 @@
   vars:
     admin_node: "{{ groups.get('admin')[0] }}"
 
-- name: add the other nodes
+- name: Add the other nodes
   hosts:
     - mons
     - mgrs
@@ -66,15 +66,15 @@
   become: true
   gather_facts: false
   tasks:
-    - import_role:
+    - ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: run cephadm prepare-host
-      command: cephadm prepare-host
+    - name: Run cephadm prepare-host
+      ansible.builtin.command: cephadm prepare-host
       changed_when: false
 
-    - name: add hosts
-      ceph_orch_host:
+    - name: Add hosts
+      ceph.automation.ceph_orch_host:
         name: "{{ ansible_facts['hostname'] }}"
         address: "{{ ansible_facts['default_ipv4']['address'] if inventory_hostname != 'ceph-node00' else omit }}"
         set_admin_label: "{{ True if inventory_hostname in groups.get('admin', []) else omit }}"
@@ -82,35 +82,35 @@
       delegate_to: "{{ groups['mons'][0] }}"
 
 
-- name: adjust service placement
+- name: Adjust service placement
   hosts: "{{ groups.get('mons')[0] }}"
   become: true
   gather_facts: false
   tasks:
-    - import_role:
+    - ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: update the placement of monitor hosts
-      ceph_orch_apply:
+    - name: Update the placement of monitor hosts
+      ceph.automation.ceph_orch_apply:
         spec: |
           service_type: mon
           service_id: mon
           placement:
             label: mons
 
-    - name: waiting for the monitor to join the quorum...
-      command: cephadm shell ceph quorum_status --format json
+    - name: Waiting for the monitor to join the quorum...
+      ansible.builtin.command: cephadm shell ceph quorum_status --format json
       register: ceph_health_raw
       changed_when: false
       until: (ceph_health_raw.stdout | from_json)["quorum_names"] | length == groups.get('mons', []) | length
       retries: "{{ health_mon_check_retries }}"
       delay: "{{ health_mon_check_delay }}"
 
-    - name: update the placement of manager hosts
-      command: cephadm shell ceph orch apply mgr --placement=label:mgrs
+    - name: Update the placement of manager hosts
+      ansible.builtin.command: cephadm shell ceph orch apply mgr --placement=label:mgrs
 
-    - name: update the placement of osd hosts
-      ceph_orch_apply:
+    - name: Update the placement of osd hosts
+      ceph.automation.ceph_orch_apply:
         spec: |
           service_type: osd
           service_id: osd
@@ -120,16 +120,16 @@
             data_devices:
               all: true
 
-    - name: update the placement of crash hosts
-      ceph_orch_apply:
+    - name: Update the placement of crash hosts
+      ceph.automation.ceph_orch_apply:
         spec: |
           service_type: crash
           service_id: crash
           placement:
             host_pattern: '*'
 
-    - name: enable the monitoring
-      command: "ceph {{ item }}"
+    - name: Enable the monitoring
+      ansible.builtin.command: "ceph {{ item }}"
       changed_when: false
       loop:
         - "mgr module enable prometheus"
@@ -138,18 +138,18 @@
         - "orch apply prometheus --placement=label:monitoring"
         - "orch apply node-exporter --placement=*"
 
-- name: remove ceph-node5
+- name: Remove ceph-node5
   hosts: "{{ groups.get('mons')[0] }}"
   become: true
   gather_facts: false
   tasks:
-    - name: drain ceph-node5
-      ceph_orch_host:
+    - name: Drain ceph-node5
+      ceph.automation.ceph_orch_host:
         state: drain
         name: ceph-node5
 
-    - name: remove ceph-node5
-      ceph_orch_host:
+    - name: Remove ceph-node5
+      ceph.automation.ceph_orch_host:
         state: absent
         name: ceph-node5
       retries: 20
@@ -157,23 +157,23 @@
       until: result is succeeded
       register: result
 
-- name: adjust service placement
+- name: Adjust service placement
   hosts: "{{ groups.get('mons')[0] }}"
   become: true
   gather_facts: false
   tasks:
-    - import_role:
+    - ansible.builtin.import_role:
         name: ceph_defaults
 
-    - name: print bootstrap details
-      debug:
+    - name: Print bootstrap details
+      ansible.builtin.debug:
         msg: "{{ bootstrap_details }}"
 
 # TODO(guits): address the following tasks:
-    # - name: show ceph orchestrator services
-    #   command: "{{ cephadm_cmd }} shell -- ceph --cluster {{ cluster }} orch ls --refresh"
+    # - name: Show ceph orchestrator services
+    #   ansible.builtin.command: "{{ cephadm_cmd }} shell -- ceph --cluster {{ cluster }} orch ls --refresh"
     #   changed_when: false
 
-    # - name: show ceph orchestrator daemons
-    #   command: "{{ cephadm_cmd }} shell -- ceph --cluster {{ cluster }} orch ps --refresh"
+    # - name: Show ceph orchestrator daemons
+    #   ansible.builtin.command: "{{ cephadm_cmd }} shell -- ceph --cluster {{ cluster }} orch ps --refresh"
     #   changed_when: false
